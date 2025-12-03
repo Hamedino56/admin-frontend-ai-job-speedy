@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Layout from "./Layout";
 import { useLanguage } from "../contexts/LanguageContext";
@@ -92,11 +92,6 @@ const AnonymizedProfilePage = () => {
     );
   }
 
-  const actionsCardStyle = useMemo(() => ({
-    ...styles.actionsCard,
-    flexDirection: isMobile ? "column" : "row",
-  }), [isMobile]);
-
   return (
     <Layout>
       <div style={styles.container}>
@@ -147,7 +142,10 @@ const AnonymizedProfilePage = () => {
         </div>
 
         {/* Action Buttons */}
-        <div style={actionsCardStyle}>
+        <div style={{
+          ...styles.actionsCard,
+          flexDirection: isMobile ? "column" : "row",
+        }}>
           <button style={styles.primaryBtn} onClick={handleDownload}>
             📥 {language === 'de' ? 'PDF herunterladen' : 'Download PDF'}
           </button>

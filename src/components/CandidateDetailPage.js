@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Layout from "./Layout";
 import { useLanguage } from "../contexts/LanguageContext";
@@ -78,11 +78,6 @@ const CandidateDetailPage = () => {
     }
   }
 
-  const appsLayoutStyle = useMemo(() => ({
-    ...styles.appsLayout,
-    gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-  }), [isMobile]);
-
   return (
     <Layout>
       <div style={styles.container}>
@@ -128,7 +123,10 @@ const CandidateDetailPage = () => {
           {applications.length === 0 ? (
             <p style={styles.noData}>{language === 'de' ? 'Keine Bewerbungen gefunden' : 'No applications found'}</p>
           ) : (
-            <div style={appsLayoutStyle}>
+            <div style={{
+              ...styles.appsLayout,
+              gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+            }}>
               <div style={styles.appsList}>
                 <table style={styles.table}>
                   <thead>
