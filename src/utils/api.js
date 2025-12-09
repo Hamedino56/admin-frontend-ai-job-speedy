@@ -1,6 +1,6 @@
 const API_BASE_URL =
   process.env.REACT_APP_API_BASE_URL ||
-  "https://job-speedy-ai-admin-panel-backend.vercel.app";
+  "https://ai-jobs-posting-backend.vercel.app";
 
 const buildUrl = (path = "") => {
   if (!path.startsWith("/")) {
