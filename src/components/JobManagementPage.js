@@ -36,7 +36,31 @@ const JobManagementPage = () => {
   const fetchJobs = async () => {
     try {
       const data = await apiFetch("/api/jobs");
-      setJobs(data.jobs || data || []);
+      const list = data.jobs || data || [];
+      // Normalize fields in case backend omits company/skills
+      const normalized = (Array.isArray(list) ? list : []).map((job) => {
+        const rawSkills =
+          job.required_skills ||
+          job.requirements ||
+          job.skills ||
+          (typeof job.skills_text === "string" ? job.skills_text.split(",") : []) ||
+          [];
+        const skillsArray = Array.isArray(rawSkills)
+          ? rawSkills
+          : String(rawSkills || "")
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean);
+
+        return {
+          ...job,
+          // Prefer company, but fall back to other fields if backend omits it
+          company: job.company || job.company_name || job.department || job.client_name || "",
+          required_skills: skillsArray,
+          requirements: skillsArray,
+        };
+      });
+      setJobs(normalized);
     } catch (e) {
       console.error("Error loading jobs:", e);
     } finally {
@@ -82,8 +106,8 @@ const JobManagementPage = () => {
     
     setForm({
       title: job.title || "",
-      company: job.company || job.company_name || job.department || "",
-      department: job.department || job.company || "",
+      company: job.company || job.company_name || job.department || job.client_name || "",
+      department: job.department || job.company || job.company_name || "",
       description: job.description || "",
       required_skills: requiredSkillsStr,
       location: job.location || "",
