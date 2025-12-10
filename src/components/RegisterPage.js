@@ -26,10 +26,18 @@ const RegisterPage = () => {
     setLoading(true);
     try {
       const payload = { email: String(email).trim().toLowerCase(), password };
-      await apiFetch("/api/auth/register-admin", {
+      const data = await apiFetch("/api/auth/register-admin", {
         method: "POST",
         body: JSON.stringify(payload),
       });
+      // Store token if provided
+      const token = data.token || data.accessToken || data.authToken || data.data?.token;
+      if (token) {
+        try {
+          localStorage.setItem('authToken', token);
+          localStorage.setItem('token', token);
+        } catch (_) {}
+      }
       try {
         localStorage.setItem('isAuthenticated', 'true');
         window.dispatchEvent(new Event('storage'));

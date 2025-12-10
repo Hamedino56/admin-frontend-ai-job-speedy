@@ -81,6 +81,9 @@ const Layout = ({ children }) => {
       if (btn) btn.style.transform = "scale(1)";
       try {
         localStorage.removeItem('isAuthenticated');
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('token');
+        localStorage.removeItem('accessToken');
         window.dispatchEvent(new Event('storage'));
       } catch (_) {}
       navigate('/login', { replace: true });

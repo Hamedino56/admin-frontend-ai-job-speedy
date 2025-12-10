@@ -1,6 +1,6 @@
 const API_BASE_URL =
   process.env.REACT_APP_API_BASE_URL ||
-  "https://ai-jobs-posting-backend.vercel.app";
+  "https://backend-job-speedy-ai-user-and-admi.vercel.app";
 
 const buildUrl = (path = "") => {
   if (!path.startsWith("/")) {
@@ -9,10 +9,20 @@ const buildUrl = (path = "") => {
   return `${API_BASE_URL}${path}`;
 };
 
+const getAuthToken = () => {
+  try {
+    return localStorage.getItem('authToken') || localStorage.getItem('token') || localStorage.getItem('accessToken');
+  } catch {
+    return null;
+  }
+};
+
 export const apiFetch = async (path, options = {}) => {
   const config = { ...options };
+  const token = getAuthToken();
   config.headers = {
     "Content-Type": "application/json",
+    ...(token && { "Authorization": `Bearer ${token}` }),
     ...(options.headers || {}),
   };
 
@@ -33,7 +43,15 @@ export const apiFetch = async (path, options = {}) => {
 };
 
 export const apiFetchRaw = async (path, options = {}) => {
-  const response = await fetch(buildUrl(path), options);
+  const token = getAuthToken();
+  const config = {
+    ...options,
+    headers: {
+      ...(token && { "Authorization": `Bearer ${token}` }),
+      ...(options.headers || {}),
+    },
+  };
+  const response = await fetch(buildUrl(path), config);
   if (!response.ok) {
     const payload = await response.text();
     throw new Error(payload || response.statusText);

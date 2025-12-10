@@ -66,14 +66,22 @@ const JobManagementPage = () => {
   const startAI = () => { setShowAddChoice(false); setUseAI(true); setAiDescription(""); setAiJob(null); setAiLoading(false); setShowForm(true); setEditingJob(null); };
   const openEdit = (job) => {
     setEditingJob(job);
+    // Handle required_skills - convert array to string if needed
+    let requiredSkillsStr = "";
+    if (Array.isArray(job.requirements)) {
+      requiredSkillsStr = job.requirements.join(", ");
+    } else if (Array.isArray(job.required_skills)) {
+      requiredSkillsStr = job.required_skills.join(", ");
+    } else if (typeof job.required_skills === 'string') {
+      requiredSkillsStr = job.required_skills;
+    }
+    
     setForm({
       title: job.title || "",
       company: job.company || job.department || "",
       department: job.department || "",
       description: job.description || "",
-      required_skills: Array.isArray(job.requirements)
-        ? job.requirements.join(", ")
-        : job.required_skills || "",
+      required_skills: requiredSkillsStr,
       location: job.location || "",
       job_type: job.job_type || job.status || "Full-time",
       status: job.status || "Open",
@@ -84,12 +92,19 @@ const JobManagementPage = () => {
   };
 
   const saveJob = async () => {
-    const requirementsList = form.required_skills
-      ? form.required_skills
+    let requirementsList = [];
+    if (form.required_skills) {
+      if (Array.isArray(form.required_skills)) {
+        // Already an array
+        requirementsList = form.required_skills.map(skill => String(skill).trim()).filter(Boolean);
+      } else if (typeof form.required_skills === 'string') {
+        // Comma-separated string
+        requirementsList = form.required_skills
           .split(",")
           .map((skill) => skill.trim())
-          .filter(Boolean)
-      : [];
+          .filter(Boolean);
+      }
+    }
 
     const payload = {
       title: form.title,

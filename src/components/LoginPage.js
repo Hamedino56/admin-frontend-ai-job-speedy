@@ -27,10 +27,18 @@ const LoginPage = () => {
     setError("");
     setLoading(true);
     try {
-      await apiFetch("/api/auth/login-admin", {
+      const data = await apiFetch("/api/auth/login-admin", {
         method: "POST",
         body: JSON.stringify({ email, password }),
       });
+      // Store token if provided
+      const token = data.token || data.accessToken || data.authToken || data.data?.token;
+      if (token) {
+        try {
+          localStorage.setItem('authToken', token);
+          localStorage.setItem('token', token);
+        } catch (_) {}
+      }
       // Mark authenticated so navbar and upload gate recognize login
       try {
         localStorage.setItem('isAuthenticated', 'true');
@@ -76,7 +84,7 @@ const LoginPage = () => {
 
     setResetLoading(true);
     try {
-      const data = await apiFetch("/api/auth/reset-password", {
+      await apiFetch("/api/auth/reset-password", {
         method: "POST",
         body: JSON.stringify({ 
           email: resetEmail, 
