@@ -106,12 +106,21 @@ const JobManagementPage = () => {
       }
     }
 
+    const resolvedTitle = form.title || editingJob?.title || "";
+    const resolvedDepartment = form.department || editingJob?.department || "General";
+    const resolvedStatus = form.status || form.job_type || editingJob?.status || "Open";
+
+    if (!resolvedTitle || !resolvedDepartment) {
+      alert(language === 'de' ? 'Titel und Abteilung sind erforderlich' : 'Title and department are required');
+      return;
+    }
+
     const payload = {
-      title: form.title,
-      department: form.department || form.company || "General",
+      title: resolvedTitle,
+      department: resolvedDepartment,
       description: form.description,
       requirements: requirementsList,
-      status: form.status || form.job_type || "Open",
+      status: resolvedStatus,
       created_by: "Admin",
     };
 
