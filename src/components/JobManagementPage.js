@@ -108,7 +108,12 @@ const JobManagementPage = () => {
 
     const resolvedTitle = form.title || editingJob?.title || "";
     const resolvedDepartment = form.department || editingJob?.department || "General";
-    const resolvedStatus = form.status || form.job_type || editingJob?.status || "Open";
+    const resolvedCompany = form.company || editingJob?.company || "";
+    const resolvedLocation = form.location || editingJob?.location || "";
+    const resolvedJobType = form.job_type || editingJob?.job_type || "Full-time";
+    const resolvedCategory = form.category || editingJob?.category || "General";
+    const resolvedLanguage = form.language || editingJob?.language || "English";
+    const resolvedStatus = form.status || resolvedJobType || editingJob?.status || "Open";
 
     if (!resolvedTitle || !resolvedDepartment) {
       alert(language === 'de' ? 'Titel und Abteilung sind erforderlich' : 'Title and department are required');
@@ -118,9 +123,15 @@ const JobManagementPage = () => {
     const payload = {
       title: resolvedTitle,
       department: resolvedDepartment,
+      company: resolvedCompany,
       description: form.description,
-      requirements: requirementsList,
+      required_skills: requirementsList,
+      requirements: requirementsList, // keep both keys to satisfy varying backend schemas
+      location: resolvedLocation,
+      job_type: resolvedJobType,
       status: resolvedStatus,
+      category: resolvedCategory,
+      language: resolvedLanguage,
       created_by: "Admin",
     };
 
