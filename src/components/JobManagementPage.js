@@ -72,14 +72,18 @@ const JobManagementPage = () => {
       requiredSkillsStr = job.requirements.join(", ");
     } else if (Array.isArray(job.required_skills)) {
       requiredSkillsStr = job.required_skills.join(", ");
+    } else if (Array.isArray(job.skills)) {
+      requiredSkillsStr = job.skills.join(", ");
     } else if (typeof job.required_skills === 'string') {
       requiredSkillsStr = job.required_skills;
+    } else if (typeof job.skills === 'string') {
+      requiredSkillsStr = job.skills;
     }
     
     setForm({
       title: job.title || "",
-      company: job.company || job.department || "",
-      department: job.department || "",
+      company: job.company || job.company_name || job.department || "",
+      department: job.department || job.company || "",
       description: job.description || "",
       required_skills: requiredSkillsStr,
       location: job.location || "",
@@ -120,13 +124,20 @@ const JobManagementPage = () => {
       return;
     }
 
+    const requirementsText = requirementsList.join(", ");
+
     const payload = {
       title: resolvedTitle,
       department: resolvedDepartment,
       company: resolvedCompany,
+      company_name: resolvedCompany, // backend compatibility
       description: form.description,
       required_skills: requirementsList,
       requirements: requirementsList, // keep both keys to satisfy varying backend schemas
+      skills: requirementsList,
+      skills_text: requirementsText,
+      requirements_text: requirementsText,
+      requiredSkills: requirementsList,
       location: resolvedLocation,
       job_type: resolvedJobType,
       status: resolvedStatus,
