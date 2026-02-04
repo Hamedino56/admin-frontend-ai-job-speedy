@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "./Layout";
 import { useLanguage } from "../contexts/LanguageContext";
@@ -14,19 +14,9 @@ const CandidateManagementPage = () => {
   const [search, setSearch] = useState("");
   const [applicationCounts, setApplicationCounts] = useState({});
 
-  useEffect(() => {
-    fetchCandidates();
-  }, []);
-
-  useEffect(() => {
-    if (!search.trim()) {
-      setCandidates(allCandidates);
-    }
-  }, [search, allCandidates]);
-
   const normalize = (value = "") => value.toString().toLowerCase();
 
-  const filterCandidates = (list, query) => {
+  const filterCandidates = useCallback((list, query) => {
     const trimmed = query.trim();
     if (!trimmed) return list;
     const q = normalize(trimmed);
@@ -36,9 +26,9 @@ const CandidateManagementPage = () => {
         normalize(c.email).includes(q) ||
         normalize(c.phone || "").includes(q)
     );
-  };
+  }, []);
 
-  const fetchCandidates = async () => {
+  const fetchCandidates = useCallback(async () => {
     setLoading(true);
     try {
       const [usersData, applicationsData] = await Promise.all([
@@ -63,7 +53,17 @@ const CandidateManagementPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [search, filterCandidates]);
+
+  useEffect(() => {
+    fetchCandidates();
+  }, [fetchCandidates]);
+
+  useEffect(() => {
+    if (!search.trim()) {
+      setCandidates(allCandidates);
+    }
+  }, [search, allCandidates]);
 
   const handleSearch = () => {
     setCandidates(filterCandidates(allCandidates, search));

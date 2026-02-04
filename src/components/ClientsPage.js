@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import Layout from "./Layout";
 import { useLanguage } from "../contexts/LanguageContext";
 import { t } from "../utils/i18n";
@@ -7,21 +7,23 @@ import { apiFetch } from "../utils/api";
 const ClientsPage = () => {
   const { language } = useLanguage();
   const [clients, setClients] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [formData, setFormData] = useState({ company: "", contact_person: "", email: "" });
   const [search, setSearch] = useState("");
 
-  useEffect(() => { fetchClients(); }, []);
-
-  const fetchClients = async () => {
+  const fetchClients = useCallback(async () => {
     try {
       const data = await apiFetch('/api/clients');
       setClients(data.clients || []);
-    } catch (_) {}
-    finally { setLoading(false); }
-  };
+    } catch (_) {
+      // Error handled silently
+    }
+  }, []);
+
+  useEffect(() => { 
+    fetchClients(); 
+  }, [fetchClients]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
