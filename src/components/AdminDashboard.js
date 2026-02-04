@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "./Layout";
 import { useLanguage } from "../contexts/LanguageContext";
@@ -15,15 +15,30 @@ const AdminDashboard = () => {
     activeClients: 0,
     totalApplications: 0,
   });
-  const [weeklyData, setWeeklyData] = useState([]);
+  const [trendData, setTrendData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [period, setPeriod] = useState("all");
   const isMobile = useMediaQuery("(max-width: 900px)");
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
+  // Transform API trend data to chart format
+  const transformTrendData = useCallback((trendArray = []) => {
+    if (!trendArray || trendArray.length === 0) return [];
+    
+    return trendArray.map((item) => {
+      const date = new Date(item.date);
+      return {
+        date: item.date,
+        applications: item.count || 0,
+        label: date.toLocaleDateString(language === "de" ? "de-DE" : "en-US", {
+          month: "short",
+          day: "numeric",
+        }),
+      };
+    });
+  }, [language]);
 
-  const aggregateWeeklyApplications = (applications = []) => {
+  // Fallback: Aggregate weekly applications from raw data (backward compatibility)
+  const aggregateWeeklyApplications = useCallback((applications = []) => {
     const buckets = new Map();
     applications.forEach((app) => {
       const raw =
@@ -53,36 +68,70 @@ const AdminDashboard = () => {
       .sort((a, b) => new Date(a[0]) - new Date(b[0]))
       .map(([, value]) => value)
       .slice(-6);
-  };
+  }, [language]);
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
+    setLoading(true);
     try {
-      const [usersData, jobsData, clientsData, applicationsData] = await Promise.all([
-        apiFetch("/api/users"),
-        apiFetch("/api/jobs"),
-        apiFetch("/api/clients"),
-        apiFetch("/api/applications"),
-      ]);
+      // Try unified dashboard endpoint first (recommended)
+      const queryParam = period !== "all" ? `?period=${period}` : "";
+      const dashboardData = await apiFetch(`/api/admin/dashboard${queryParam}`);
 
-      const users = usersData.users || [];
-      const jobs = jobsData.jobs || [];
-      const clients = clientsData.clients || [];
-      const applications = applicationsData.applications || [];
+      // Use unified endpoint data
+      if (dashboardData.stats) {
+        setStats({
+          totalCandidates: dashboardData.stats.totalCandidates || 0,
+          totalJobs: dashboardData.stats.totalJobs || 0,
+          activeClients: dashboardData.stats.activeClients || 0,
+          totalApplications: dashboardData.stats.totalApplications || 0,
+        });
 
-      setStats({
-        totalCandidates: users.length,
-        totalJobs: jobs.length,
-        activeClients: clients.length,
-        totalApplications: applications.length,
-      });
-
-      setWeeklyData(aggregateWeeklyApplications(applications));
+        // Use trend data from API if available
+        if (dashboardData.applicationsTrend && dashboardData.applicationsTrend.length > 0) {
+          setTrendData(transformTrendData(dashboardData.applicationsTrend));
+        } else {
+          setTrendData([]);
+        }
+      } else {
+        // Fallback to individual endpoints if unified endpoint doesn't return expected format
+        throw new Error("Unified endpoint returned unexpected format");
+      }
     } catch (err) {
-      console.error("Error fetching dashboard data:", err);
+      console.warn("Unified dashboard endpoint failed, falling back to individual endpoints:", err);
+      
+      // Fallback: Use individual endpoints (backward compatibility)
+      try {
+        const [usersData, jobsData, clientsData, applicationsData] = await Promise.all([
+          apiFetch("/api/users"),
+          apiFetch("/api/jobs"),
+          apiFetch("/api/clients"),
+          apiFetch("/api/applications"),
+        ]);
+
+        const users = usersData.users || [];
+        const jobs = jobsData.jobs || [];
+        const clients = clientsData.clients || [];
+        const applications = applicationsData.applications || [];
+
+        setStats({
+          totalCandidates: users.length,
+          totalJobs: jobs.length,
+          activeClients: clients.length,
+          totalApplications: applications.length,
+        });
+
+        setTrendData(aggregateWeeklyApplications(applications));
+      } catch (fallbackErr) {
+        console.error("Error fetching dashboard data (fallback):", fallbackErr);
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, [period, transformTrendData, aggregateWeeklyApplications]);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
 
   const handleCardClick = (page) => {
     navigate(`/${page}`);
@@ -95,7 +144,7 @@ const AdminDashboard = () => {
     { title: t(language, 'dashboard.totalApplications'), value: stats.totalApplications, route: "candidates" },
   ];
 
-  const maxValue = weeklyData.length > 0 ? Math.max(...weeklyData.map(d => d.applications), 1) : 100;
+  const maxValue = trendData.length > 0 ? Math.max(...trendData.map(d => d.applications), 1) : 100;
 
   // Pie data for summary (candidates, jobs, clients, applications)
   const pieData = [
@@ -151,6 +200,16 @@ const AdminDashboard = () => {
           <div style={styles.graphCard}>
             <div style={styles.graphHeader}>
               <h3 style={styles.graphTitle}>{t(language, 'dashboard.applicationsTrend')}</h3>
+              <select
+                value={period}
+                onChange={(e) => setPeriod(e.target.value)}
+                style={styles.timeFilter}
+              >
+                <option value="all">{language === 'de' ? 'Alle Zeit' : 'All Time'}</option>
+                <option value="week">{language === 'de' ? 'Letzte Woche' : 'Last Week'}</option>
+                <option value="month">{language === 'de' ? 'Letzter Monat' : 'Last Month'}</option>
+                <option value="year">{language === 'de' ? 'Letztes Jahr' : 'Last Year'}</option>
+              </select>
             </div>
             <div style={styles.graphWrapper}>
               <div style={styles.yAxis}>
@@ -159,7 +218,7 @@ const AdminDashboard = () => {
                 ))}
               </div>
               <div style={styles.graphContainer}>
-                {weeklyData.length > 0 ? (
+                {trendData.length > 0 ? (
                   <>
                     {/* Grid lines */}
                     <div style={styles.gridLines}>
@@ -169,7 +228,7 @@ const AdminDashboard = () => {
                     </div>
                     {/* Bars */}
                     <div style={styles.barsContainer}>
-                      {weeklyData.map((item, index) => (
+                      {trendData.map((item, index) => (
                         <div key={index} style={styles.barGroup}>
                           <div style={styles.labelContainer}>
                             <span style={styles.valueBubble}>{item.applications}</span>
@@ -183,7 +242,7 @@ const AdminDashboard = () => {
                               }}
                             />
                           </div>
-                          <span style={styles.weekLabel}>{item.week}</span>
+                          <span style={styles.weekLabel}>{item.label}</span>
                         </div>
                       ))}
                     </div>
