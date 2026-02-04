@@ -18,23 +18,46 @@ const AdminDashboard = () => {
   const [trendData, setTrendData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState("all");
+  const [distribution, setDistribution] = useState(null);
   const isMobile = useMediaQuery("(max-width: 900px)");
 
   // Transform API trend data to chart format
+  // Backend returns: [{date: "2024-11-25", count: 12}, ...]
   const transformTrendData = useCallback((trendArray = []) => {
-    if (!trendArray || trendArray.length === 0) return [];
+    if (!trendArray || !Array.isArray(trendArray) || trendArray.length === 0) {
+      return [];
+    }
     
     return trendArray.map((item) => {
-      const date = new Date(item.date);
-      return {
-        date: item.date,
-        applications: item.count || 0,
-        label: date.toLocaleDateString(language === "de" ? "de-DE" : "en-US", {
-          month: "short",
-          day: "numeric",
-        }),
-      };
-    });
+      // Handle both formats: {date, count} or {date, applications}
+      const dateStr = item.date || item.dateString || "";
+      const count = Number(item.count || item.applications || 0);
+      
+      if (!dateStr) {
+        console.warn("Invalid trend item (missing date):", item);
+        return null;
+      }
+
+      try {
+        const date = new Date(dateStr);
+        if (Number.isNaN(date.getTime())) {
+          console.warn("Invalid date format:", dateStr);
+          return null;
+        }
+
+        return {
+          date: dateStr,
+          applications: count,
+          label: date.toLocaleDateString(language === "de" ? "de-DE" : "en-US", {
+            month: "short",
+            day: "numeric",
+          }),
+        };
+      } catch (err) {
+        console.warn("Error parsing date:", dateStr, err);
+        return null;
+      }
+    }).filter(item => item !== null); // Remove invalid items
   }, [language]);
 
   // Fallback: Aggregate weekly applications from raw data (backward compatibility)
@@ -77,27 +100,46 @@ const AdminDashboard = () => {
       const queryParam = period !== "all" ? `?period=${period}` : "";
       const dashboardData = await apiFetch(`/api/admin/dashboard${queryParam}`);
 
-      // Use unified endpoint data
-      if (dashboardData.stats) {
+      // Verify response structure matches backend API
+      if (dashboardData && dashboardData.stats) {
+        // Set KPI stats from backend response
         setStats({
-          totalCandidates: dashboardData.stats.totalCandidates || 0,
-          totalJobs: dashboardData.stats.totalJobs || 0,
-          activeClients: dashboardData.stats.activeClients || 0,
-          totalApplications: dashboardData.stats.totalApplications || 0,
+          totalCandidates: Number(dashboardData.stats.totalCandidates) || 0,
+          totalJobs: Number(dashboardData.stats.totalJobs) || 0,
+          activeClients: Number(dashboardData.stats.activeClients) || 0,
+          totalApplications: Number(dashboardData.stats.totalApplications) || 0,
         });
 
-        // Use trend data from API if available
-        if (dashboardData.applicationsTrend && dashboardData.applicationsTrend.length > 0) {
+        // Use trend data from API - backend returns array with {date, count}
+        if (dashboardData.applicationsTrend && Array.isArray(dashboardData.applicationsTrend) && dashboardData.applicationsTrend.length > 0) {
           setTrendData(transformTrendData(dashboardData.applicationsTrend));
         } else {
+          // Empty trend data if not available
           setTrendData([]);
         }
+
+        // Store distribution data if available (for pie chart)
+        if (dashboardData.distribution) {
+          setDistribution(dashboardData.distribution);
+        } else {
+          // Use stats as fallback for distribution
+          setDistribution(dashboardData.stats);
+        }
+
+        // Log for debugging (remove in production if needed)
+        console.log("Dashboard KPIs loaded:", {
+          stats: dashboardData.stats,
+          trendCount: dashboardData.applicationsTrend?.length || 0,
+          period: dashboardData.period || period,
+          distribution: dashboardData.distribution || dashboardData.stats,
+        });
       } else {
-        // Fallback to individual endpoints if unified endpoint doesn't return expected format
+        // Invalid response structure
+        console.error("Invalid dashboard API response structure:", dashboardData);
         throw new Error("Unified endpoint returned unexpected format");
       }
     } catch (err) {
-      console.warn("Unified dashboard endpoint failed, falling back to individual endpoints:", err);
+      console.warn("Unified dashboard endpoint failed, falling back to individual endpoints:", err.message);
       
       // Fallback: Use individual endpoints (backward compatibility)
       try {
@@ -123,6 +165,14 @@ const AdminDashboard = () => {
         setTrendData(aggregateWeeklyApplications(applications));
       } catch (fallbackErr) {
         console.error("Error fetching dashboard data (fallback):", fallbackErr);
+        // Set default values on complete failure
+        setStats({
+          totalCandidates: 0,
+          totalJobs: 0,
+          activeClients: 0,
+          totalApplications: 0,
+        });
+        setTrendData([]);
       }
     } finally {
       setLoading(false);
@@ -147,11 +197,28 @@ const AdminDashboard = () => {
   const maxValue = trendData.length > 0 ? Math.max(...trendData.map(d => d.applications), 1) : 100;
 
   // Pie data for summary (candidates, jobs, clients, applications)
+  // Use distribution data from backend if available, otherwise use stats
   const pieData = [
-    { label: t(language, 'dashboard.totalCandidates'), value: stats.totalCandidates, color: '#6aa4ff' },
-    { label: t(language, 'dashboard.totalJobs'), value: stats.totalJobs, color: '#4CAF50' },
-    { label: t(language, 'dashboard.activeClients'), value: stats.activeClients, color: '#FF9800' },
-    { label: t(language, 'dashboard.totalApplications'), value: stats.totalApplications, color: '#f44336' },
+    { 
+      label: t(language, 'dashboard.totalCandidates'), 
+      value: Number(distribution?.candidates ?? stats.totalCandidates) || 0, 
+      color: '#6aa4ff' 
+    },
+    { 
+      label: t(language, 'dashboard.totalJobs'), 
+      value: Number(distribution?.jobs ?? stats.totalJobs) || 0, 
+      color: '#4CAF50' 
+    },
+    { 
+      label: t(language, 'dashboard.activeClients'), 
+      value: Number(distribution?.clients ?? stats.activeClients) || 0, 
+      color: '#FF9800' 
+    },
+    { 
+      label: t(language, 'dashboard.totalApplications'), 
+      value: Number(distribution?.applications ?? stats.totalApplications) || 0, 
+      color: '#f44336' 
+    },
   ];
   const pieTotal = pieData.reduce((s, d) => s + (Number.isFinite(d.value) ? d.value : 0), 0) || 1;
   let acc = 0;
